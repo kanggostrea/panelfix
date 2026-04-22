@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  panel:
+    image: paneldashboard/panel:latest
+    container_name: ghost-panel-1
+    ports:
+      - "7860:7860"
+    environment:
+      - DASHBOARD_URL=http://DASHBOARD_IP:5000
+      - DASHBOARD_AUTH_KEY=GHOST_SECRET_2026
+      - CURRENT_SLOT=1
+    volumes:
+      - ./chrome_profiles:/app/chrome_profiles
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - ghost-network
+
+networks:
+  ghost-network:
+    driver: bridge
