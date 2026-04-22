@@ -23,7 +23,7 @@ app = Flask(__name__)
 # ⚙️ CONFIG
 # ==========================================
 PANEL_URL = [
-    "https://ghost.devdot.qzz.io"
+    "https://dashboard.jujulefek.qzz.io"
 ]
 
 AUTH_KEY = "GHOST_SECRET_2026"
