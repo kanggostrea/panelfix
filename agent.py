@@ -697,7 +697,7 @@ def view_screenshot():
         
 if __name__ == '__main__':
     # Register ke dashboard
-    register_to_dashboard()
+    # register_to_dashboard()
     
     # Start heartbeat thread
     threading.Thread(target=send_heartbeat_to_dashboard, daemon=True).start()
