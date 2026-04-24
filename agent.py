@@ -194,7 +194,7 @@ def execute_command(cmd):
     action = cmd.get('action')
     payload = cmd.get('payload', {})
     
-    print(f"⚡ [EXEC] Executing: {action} (ID: {cmd_id})", flush=True)
+    print(f"⚡ [EXEC] Executing: {action} (ID: {cmd_id[:8]}...)", flush=True)
     
     try:
         if action == "start_login":
@@ -209,6 +209,15 @@ def execute_command(cmd):
             threading.Thread(target=run_and_monitor, args=(cmd_login, "LOGIN"), daemon=True).start()
             print(f"✅ [EXEC] Login started", flush=True)
             
+            # Report status
+            requests.post(
+                f"{DASHBOARD_URL}/api/command/update/{cmd_id}",
+                json={"status": "EXECUTING"},
+                headers={"X-Auth-Key": DASHBOARD_AUTH_KEY},
+                timeout=10,
+                verify=False
+            )
+            
         elif action == "start_loop":
             if check_process(FILE_LOOP):
                 print(f"⚠️ [EXEC] Loop already running", flush=True)
@@ -221,15 +230,39 @@ def execute_command(cmd):
             threading.Thread(target=run_and_monitor, args=(cmd_loop, "LOOP"), daemon=True).start()
             print(f"✅ [EXEC] Loop started", flush=True)
             
+            requests.post(
+                f"{DASHBOARD_URL}/api/command/update/{cmd_id}",
+                json={"status": "EXECUTING"},
+                headers={"X-Auth-Key": DASHBOARD_AUTH_KEY},
+                timeout=10,
+                verify=False
+            )
+            
         elif action == "stop":
             kill_processes()
             clean_system()
             print(f"✅ [EXEC] Stopped all processes", flush=True)
             
+            requests.post(
+                f"{DASHBOARD_URL}/api/command/update/{cmd_id}",
+                json={"status": "SUCCESS"},
+                headers={"X-Auth-Key": DASHBOARD_AUTH_KEY},
+                timeout=10,
+                verify=False
+            )
+            
         elif action == "clean_ram":
             clean_system()
             mem = psutil.virtual_memory()
             print(f"✅ [EXEC] RAM Cleaned: {mem.available // 1048576} MB free", flush=True)
+            
+            requests.post(
+                f"{DASHBOARD_URL}/api/command/update/{cmd_id}",
+                json={"status": "SUCCESS"},
+                headers={"X-Auth-Key": DASHBOARD_AUTH_KEY},
+                timeout=10,
+                verify=False
+            )
         
         else:
             print(f"❌ [EXEC] Unknown action: {action}", flush=True)
