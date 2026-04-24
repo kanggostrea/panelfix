@@ -415,65 +415,48 @@ def auto_register():
     except:
         my_ip = "Unknown IP"
 
+    # ✅ GET SLOT FROM ENV
+    CURRENT_SLOT = int(os.getenv("CURRENT_SLOT", 1))
+    print(f"🎯 [INIT] Using CURRENT_SLOT={CURRENT_SLOT}", flush=True)
+
     registered = False
     
     while not registered:
         for url in PANEL_URL:
             try:
                 print(f"📡 [INIT] Register ke Panel: {url} ...", flush=True)
+                
+                # ✅ INCLUDE SLOT IN PAYLOAD
+                payload = {
+                    "slot": CURRENT_SLOT,      # ← TAMBAH INI
+                    "url": bot_url, 
+                    "ip": my_ip
+                }
+                
                 resp = requests.post(
                     f"{url}/api/register", 
-                    json={"url": bot_url, "ip": my_ip}, 
+                    json=payload,
                     headers={"X-Auth-Key": AUTH_KEY}, 
-                    timeout=20, verify=False 
+                    timeout=20, 
+                    verify=False 
                 )
 
                 if resp.status_code == 200:
                     data = resp.json()
-                    CURRENT_SLOT = data.get('slot')
-                    locker = data.get('locker', {})
-
                     print(f"\n✅ [INIT] TERDAFTAR DI SLOT: {CURRENT_SLOT}", flush=True)
-                    
-                    emails = locker.get('emails', [])
-                    links = locker.get('links', [])
-                    with open('email.txt', 'w') as f: f.write("\n".join(emails) + "\n")
-                    with open('link.txt', 'w') as f: f.write("\n".join(links) + "\n")
-                    os.system("sed -i '/^$/d' email.txt")
-                    os.system("sed -i '/^$/d' link.txt")
-
-                    ack_success = False
-                    for i in range(5): 
-                        try:
-                            ack_resp = requests.post(
-                                f"{url}/api/ack", 
-                                json={"slot": CURRENT_SLOT}, 
-                                headers={"X-Auth-Key": AUTH_KEY}, 
-                                timeout=10, verify=False
-                            )
-                            if ack_resp.status_code == 200:
-                                print("✅ [ACK] Sinkronisasi Berhasil!", flush=True)
-                                ack_success = True
-                                break 
-                        except:
-                            time.sleep(1)
-                    
-                    if not ack_success:
-                        print("💀 [FATAL] Gagal ACK ke Server. Ulangi Register...", flush=True)
-                        CURRENT_SLOT = None
-                        continue 
-
                     registered = True
                     return True
 
                 elif resp.status_code == 503:
                     print("⛔ [INIT] PANEL PENUH! Retry 10s...", flush=True)
+                else:
+                    print(f"⚠️ [INIT] Register failed: {resp.status_code} - {resp.text}", flush=True)
+                    
             except Exception as e:
                 print(f"❌ [INIT] Gagal koneksi ke panel: {e}", flush=True)
                 resolve_domain_dynamic()
         
         if not registered: time.sleep(10)
-
 # ==========================================
 # 🤖 AUTOMATION FLOW (WITH DATA CHECK)
 # ==========================================
