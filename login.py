@@ -21,7 +21,7 @@ DNS_MAP = {}
 TARGET_DOMAINS = ["api.ipify.org"]
 
 def resolve_specific_domains():
-    print("Bridge active for IP Check...", flush=True)
+    print("🌉 Bridge active for IP Check...", flush=True)
     for domain in TARGET_DOMAINS:
         try:
             api_url = f"https://dns.google/resolve?name={domain}"
@@ -44,7 +44,6 @@ resolve_specific_domains()
 # ==========================================
 # ⚙️ KONFIGURASI BOT
 # ==========================================
-PASSWORD = "Henstyle56"      
 PROFILE_PREFIX = "dotaja"     
 START_INDEX = 1               
 
@@ -54,9 +53,9 @@ CHROME_PATH = "/usr/bin/google-chrome"
 
 BASE_PATH = os.getcwd() 
 BASE_PROFILE_DIR = os.path.join(BASE_PATH, "chrome_profiles")
-EMAIL_FILE = os.path.join(BASE_PATH, "email.txt")
 MAPPING_FILE = os.path.join(BASE_PATH, "mapping_profil.txt")
-HISTORY_FILE = os.path.join(BASE_PATH, "history_sukses.txt") 
+HISTORY_FILE = os.path.join(BASE_PATH, "history_sukses.txt")
+TASK_PAYLOAD_FILE = os.path.join(BASE_PATH, "task_payload.json")
 
 # ==========================================
 # CEK IP
@@ -69,6 +68,20 @@ except:
 # ==========================================
 # FUNGSI PENDUKUNG
 # ==========================================
+def read_task_payload():
+    """✅ BACA TASK DARI agent.py"""
+    if not os.path.exists(TASK_PAYLOAD_FILE):
+        print(f"❌ Task file not found: {TASK_PAYLOAD_FILE}", flush=True)
+        return None
+    try:
+        with open(TASK_PAYLOAD_FILE, 'r') as f:
+            payload = json.load(f)
+        print(f"✅ Task payload loaded: email={payload.get('email')}, urls={len(payload.get('urls', []))}", flush=True)
+        return payload
+    except Exception as e:
+        print(f"❌ Error reading task payload: {e}", flush=True)
+        return None
+
 def load_history():
     if not os.path.exists(HISTORY_FILE): return set()
     with open(HISTORY_FILE, "r") as f:
@@ -96,7 +109,6 @@ def fix_crash_restore_popup(profile_path):
             with open(pref_file, "w", encoding="utf-8") as f: json.dump(data, f)
     except: pass
 
-# FUNGSI DINONAKTIFKAN TOTAL
 def send_telegram_photo(caption, image_path):
     pass
 
@@ -122,70 +134,112 @@ def kill_chrome(proc_instance=None):
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
-if not os.path.exists(EMAIL_FILE): 
+
+# ✅ BACA TASK DARI DASHBOARD
+task_payload = read_task_payload()
+
+if not task_payload:
+    print("❌ No task payload. Exiting...", flush=True)
     sys.exit(1)
 
-with open(EMAIL_FILE, "r") as f:
-    EMAILS = [line.strip() for line in f if line.strip()]
+EMAIL = task_payload.get('email')
+PASSWORD = task_payload.get('password')
+URLs = task_payload.get('urls', [])
+
+if not EMAIL or not PASSWORD or not URLs:
+    print("❌ Invalid task payload (missing email, password, or urls)", flush=True)
+    sys.exit(1)
+
+print(f"📧 [LOGIN] Email: {EMAIL}", flush=True)
+print(f"🔑 [LOGIN] Password: ***", flush=True)
+print(f"🔗 [LOGIN] URLs to open: {URLs}", flush=True)
 
 COMPLETED_EMAILS = load_history()
 kill_chrome()
 
-for i, EMAIL in enumerate(EMAILS, start=START_INDEX):
-    folder_name = f"{PROFILE_PREFIX}{i:02d}"
-    full_profile_path = os.path.join(BASE_PROFILE_DIR, folder_name)
+# ==========================================
+# PROCESS SINGLE EMAIL
+# ==========================================
+
+folder_name = f"{PROFILE_PREFIX}01"
+full_profile_path = os.path.join(BASE_PROFILE_DIR, folder_name)
+
+if not os.path.exists(full_profile_path): 
+    os.makedirs(full_profile_path)
     
-    if not os.path.exists(full_profile_path): os.makedirs(full_profile_path)
-    save_mapping(full_profile_path, folder_name)
-    fix_crash_restore_popup(full_profile_path)
+save_mapping(full_profile_path, folder_name)
+fix_crash_restore_popup(full_profile_path)
 
-    if EMAIL in COMPLETED_EMAILS:
-        MODE = "CHECK"
-        TARGET_URL = "https://idx.google.com/joko" 
-    else:
-        MODE = "LOGIN"
-        TARGET_URL = "https://idx.google.com/joko" 
+if EMAIL in COMPLETED_EMAILS:
+    MODE = "CHECK"
+    TARGET_URL = URLs[0] if URLs else "https://google.com"
+else:
+    MODE = "LOGIN"
+    TARGET_URL = "https://accounts.google.com/login"
 
-    cmd = [
-        CHROME_PATH, 
-        "--no-sandbox", "--disable-dev-shm-usage", "--start-maximized",
-        "--test-type",
-        "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",
-        "--disable-component-update",
-        "--disable-session-crashed-bubble",
-        "--no-first-run", "--no-default-browser-check", 
-        f"--window-size={SCREEN_WIDTH},{SCREEN_HEIGHT}",
-        f"--user-data-dir={full_profile_path}", 
-        TARGET_URL
-    ]
-    
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    wait_time = 15 if MODE == "LOGIN" else 10
-    time.sleep(wait_time)
+print(f"🔐 [LOGIN] Mode: {MODE}", flush=True)
+print(f"🌐 [LOGIN] Target URL: {TARGET_URL}", flush=True)
 
-    try:
-        if MODE == "LOGIN":
-            pyautogui.write(EMAIL, interval=0.1)
-            pyautogui.press("enter")
-            time.sleep(8) 
-            pyautogui.write(PASSWORD, interval=0.1)
-            pyautogui.press("enter")
-            time.sleep(15)
-            save_history(EMAIL)
+cmd = [
+    CHROME_PATH, 
+    "--no-sandbox", "--disable-dev-shm-usage", "--start-maximized",
+    "--test-type",
+    "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",
+    "--disable-component-update",
+    "--disable-session-crashed-bubble",
+    "--no-first-run", "--no-default-browser-check", 
+    f"--window-size={SCREEN_WIDTH},{SCREEN_HEIGHT}",
+    f"--user-data-dir={full_profile_path}", 
+    TARGET_URL
+]
+
+proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+wait_time = 15 if MODE == "LOGIN" else 10
+time.sleep(wait_time)
+
+try:
+    if MODE == "LOGIN":
+        print(f"⌨️ [LOGIN] Typing email...", flush=True)
+        pyautogui.write(EMAIL, interval=0.1)
+        pyautogui.press("enter")
+        time.sleep(8) 
         
-        # PROSES SIMPAN GAMBAR LOKAL
-        ss_path = os.path.join(BASE_PATH, f"bukti_{folder_name}.png")
-        try:
-            with mss.mss() as sct: sct.shot(mon=-1, output=ss_path)
-            print(f"Screenshot saved: {ss_path}", flush=True)
-        except: pass
+        print(f"⌨️ [LOGIN] Typing password...", flush=True)
+        pyautogui.write(PASSWORD, interval=0.1)
+        pyautogui.press("enter")
+        time.sleep(15)
+        
+        print(f"✅ [LOGIN] Login completed", flush=True)
+        save_history(EMAIL)
+    
+    # ✅ AFTER LOGIN, OPEN URLS IN CHROME
+    print(f"🔗 [LOGIN] Opening {len(URLs)} URLs...", flush=True)
+    
+    if len(URLs) > 1:
+        # Open first URL
+        for url in URLs[1:]:
+            pyautogui.hotkey('ctrl', 't')  # New tab
+            time.sleep(1)
+            pyautogui.write(url, interval=0.05)
+            pyautogui.press("enter")
+            time.sleep(2)
+    
+    print(f"✅ [LOGIN] All URLs opened. Holding browser for 5 minutes...", flush=True)
+    
+    # PROSES SIMPAN GAMBAR LOKAL
+    ss_path = os.path.join(BASE_PATH, f"bukti_{folder_name}.png")
+    try:
+        with mss.mss() as sct: sct.shot(mon=-1, output=ss_path)
+        print(f"📸 Screenshot saved: {ss_path}", flush=True)
+    except: pass
+    
+    # Keep browser open 5 minutes for verification
+    time.sleep(300)
+         
+except Exception as e:
+    print(f"❌ Error: {e}", flush=True)
 
-        # Tidak ada lagi pemanggilan Telegram di sini
-            
-    except Exception as e:
-        print(f"Error: {e}")
+kill_chrome(proc)
+time.sleep(2)
 
-    kill_chrome(proc)
-    time.sleep(2)
-
-print(f"Process Complete. IP: {MY_IP}")
+print(f"✅ [LOGIN] Process Complete. IP: {MY_IP}", flush=True)
