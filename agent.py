@@ -91,9 +91,21 @@ def register_to_dashboard():
 
 def send_heartbeat_to_dashboard():
     """Send heartbeat ke dashboard setiap 30 detik"""
+    global CURRENT_SLOT
+    
+    print("💓 [HEARTBEAT] Starting heartbeat thread...", flush=True)
+    
     while True:
         try:
+            # ✅ TUNGGU SAMPAI CURRENT_SLOT SET (max 5 menit)
+            wait_count = 0
+            while not CURRENT_SLOT and wait_count < 10:
+                print(f"⏳ [HEARTBEAT] Waiting for CURRENT_SLOT... ({wait_count})", flush=True)
+                time.sleep(3)
+                wait_count += 1
+            
             if not CURRENT_SLOT:
+                print(f"❌ [HEARTBEAT] CURRENT_SLOT still not set after 30s. Skipping.", flush=True)
                 time.sleep(30)
                 continue
             
@@ -125,6 +137,8 @@ def send_heartbeat_to_dashboard():
                 }
             }
             
+            print(f"💓 [HEARTBEAT] Sending: slot={CURRENT_SLOT}, state={state}", flush=True)
+            
             requests.post(
                 f"{DASHBOARD_URL}/api/heartbeat",
                 json=payload,
@@ -132,8 +146,8 @@ def send_heartbeat_to_dashboard():
                 timeout=10,
                 verify=False
             )
-        except:
-            pass  # Silent error
+        except Exception as e:
+            print(f"❌ [HEARTBEAT] Error: {e}", flush=True)
         
         time.sleep(30)
 
@@ -201,31 +215,32 @@ def execute_command(cmd):
     
     try:
         if action == "start_login":
-    if check_process(FILE_LOGIN) or check_process(FILE_LOOP):
-        print(f"⚠️ [EXEC] Process already running", flush=True)
-        return
-    
-    # ✅ SAVE PAYLOAD (email, password, urls) KE FILE
-    task_file = os.path.join(BASE_DIR, "task_payload.json")
-    try:
-        with open(task_file, 'w') as f:
-            json.dump({
-                'email': payload.get('email'),
-                'password': payload.get('password'),
-                'urls': payload.get('urls', [])
-            }, f)
-        print(f"✅ [EXEC] Task payload saved: {task_file}", flush=True)
-    except Exception as e:
-        print(f"❌ [EXEC] Error saving payload: {e}", flush=True)
-        return
-    
-    cmd_login = (
-        f"xvfb-run -a --server-args='-screen 0 {SCREEN_LOGIN}' "
-        f"{sys.executable} {FILE_LOGIN}"
-    )
-    threading.Thread(target=run_and_monitor, args=(cmd_login, "LOGIN"), daemon=True).start()
-    print(f"✅ [EXEC] Login started with payload", flush=True)
+            if check_process(FILE_LOGIN) or check_process(FILE_LOOP):
+                print(f"⚠️ [EXEC] Process already running", flush=True)
+                return
             
+            # ✅ SAVE PAYLOAD (email, password, urls) KE FILE
+            task_file = os.path.join(BASE_DIR, "task_payload.json")
+            try:
+                with open(task_file, 'w') as f:
+                    json.dump({
+                        'email': payload.get('email'),
+                        'password': payload.get('password'),
+                        'urls': payload.get('urls', [])
+                    }, f)
+                print(f"✅ [EXEC] Task payload saved: {task_file}", flush=True)
+            except Exception as e:
+                print(f"❌ [EXEC] Error saving payload: {e}", flush=True)
+                return
+            
+            cmd_login = (
+                f"xvfb-run -a --server-args='-screen 0 {SCREEN_LOGIN}' "
+                f"{sys.executable} {FILE_LOGIN}"
+            )
+            threading.Thread(target=run_and_monitor, args=(cmd_login, "LOGIN"), daemon=True).start()
+            print(f"✅ [EXEC] Login started with payload", flush=True)
+            
+            # Report status
             requests.post(
                 f"{DASHBOARD_URL}/api/command/update/{cmd_id}",
                 json={"status": "EXECUTING"},
